@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>关卡编辑</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: "Microsoft YaHei", sans-serif; background: #f4f0e7; color: #25211d; }
+    header { height: 56px; display: flex; align-items: center; justify-content: space-between; padding: 0 18px; border-bottom: 1px solid #d9cfbf; background: #fffdf8; }
+    button, input { font: inherit; }
+    button { height: 34px; border: 1px solid #c8bba9; border-radius: 6px; padding: 0 12px; background: #fffaf0; font-weight: 700; cursor: pointer; }
+    button.primary { border-color: #c55f34; background: #d96a35; color: #fff; }
+    input { width: 100%; height: 34px; border: 1px solid #cfc4b3; border-radius: 6px; padding: 0 9px; background: #fffef9; }
+    label { display: block; margin-bottom: 12px; font-size: 13px; color: #675d50; }
+    .page { display: grid; grid-template-columns: 240px minmax(420px, 1fr) 320px; gap: 14px; padding: 14px; }
+    .panel { border: 1px solid #d9cfbf; border-radius: 8px; background: #fffdf8; padding: 14px; }
+    h2 { margin: 0 0 12px; font-size: 15px; color: #6b5f50; }
+    .tabs, .buttons, .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+    .tabs button.on, .buttons button.on, .chip.on { border-color: #d96a35; background: #ffe0c9; color: #a54d28; }
+    .stage { position: relative; width: min(62vh, 520px); max-width: 100%; aspect-ratio: 1; margin: 0 auto 12px; border: 1px solid #d6cbbb; border-radius: 8px; background: #fffaf0; overflow: hidden; }
+    .stage img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; user-select: none; pointer-events: none; }
+    .full { opacity: 0.34; filter: brightness(0.65) sepia(0.18); }
+    .stroke { opacity: 0; filter: brightness(0) saturate(100%) invert(48%) sepia(91%) saturate(897%) hue-rotate(344deg) brightness(96%) contrast(91%) drop-shadow(0 0 8px rgba(217,106,53,.75)); }
+    .stroke.on { opacity: .95; }
+    .chip { min-width: 34px; height: 30px; display: grid; place-items: center; border: 1px solid #cfc4b3; border-radius: 6px; background: #fffef9; font-weight: 800; font-size: 13px; }
+    .answer { border: 1px solid #d9cfbf; border-radius: 8px; padding: 10px; margin-top: 10px; background: #fffaf0; }
+    .answer-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+    .word { font-size: 28px; font-weight: 800; }
+    .hint, .status { font-size: 13px; color: #7b6f60; line-height: 1.55; }
+    .status { min-height: 22px; text-align: center; color: #8c5b34; }
+    @media (max-width: 960px) { .page { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <header>
+    <strong>{% if level %}编辑关卡 #{{ level.id }}{% else %}新建关卡{% endif %}</strong>
+    <div>
+      <a href="/admin/levels">返回列表</a>
+      <button class="primary" id="saveBtn">保存</button>
+      <button id="publishBtn">发布</button>
+    </div>
+  </header>
+
+  <div class="page">
+    <section class="panel">
+      <h2>关卡</h2>
+      <label>原文
+        <input id="sourceText" value="{% if level %}{{ level.source_text }}{% endif %}" placeholder="明 / 明月 / 一鸣惊人">
+      </label>
+      <label>通关数量
+        <input id="passCount" type="number" min="1" value="{% if level %}{{ level.pass_count }}{% else %}1{% endif %}">
+      </label>
+      <label>排序
+        <input id="sortOrder" type="number" min="0" value="{% if level %}{{ level.sort_order }}{% else %}0{% endif %}">
+      </label>
+      <button class="primary" id="generateBtn">生成笔画</button>
+      <p class="hint" id="levelStatus">输入原文后生成笔画，再配置答案。</p>
+    </section>
+
+    <section class="panel">
+      <h2>选笔画</h2>
+      <div class="tabs" id="charTabs"></div>
+      <div class="stage" id="stage"></div>
+      <div class="buttons" id="strokeButtons"></div>
+      <div class="status" id="hitStatus"></div>
+    </section>
+
+    <section class="panel">
+      <h2>答案</h2>
+      <label>答案字
+        <input id="answerWord" placeholder="日">
+      </label>
+      <div class="chips" id="selectedChips"><span class="hint">未选择</span></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px;">
+        <button id="clearBtn">清空</button>
+        <button class="primary" id="addAnswerBtn">添加答案</button>
+      </div>
+      <div id="answerList"></div>
+    </section>
+  </div>
+
+  <script>
+    let levelId = {% if level %}{{ level.id }}{% else %}null{% endif %};
+    let levelData = null;
+    let currentCharId = '';
+    const selected = {};
+    const hitMasks = new Map();
+
+    const sourceText = document.getElementById('sourceText');
+    const passCount = document.getElementById('passCount');
+    const sortOrder = document.getElementById('sortOrder');
+    const charTabs = document.getElementById('charTabs');
+    const stage = document.getElementById('stage');
+    const strokeButtons = document.getElementById('strokeButtons');
+    const selectedChips = document.getElementById('selectedChips');
+    const answerList = document.getElementById('answerList');
+    const hitStatus = document.getElementById('hitStatus');
+    const levelStatus = document.getElementById('levelStatus');
+
+    async function api(url, options = {}) {
+      const res = await fetch(url, {
+        ...options,
+        headers: { 'Content-Type': 'application/json', ...(options.headers || {}) }
+      });
+      const data = await res.json();
+      if (data.code !== 0) throw new Error(data.errorMsg || '请求失败');
+      return data.data;
+    }
+
+    async function loadLevel() {
+      if (!levelId) return render();
+      levelData = await api(`/api/admin/levels/${levelId}`);
+      currentCharId = levelData.chars[0]?.charId || '';
+      render();
+    }
+
+    async function saveLevel() {
+      const payload = {
+        sourceText: sourceText.value,
+        passCount: Number(passCount.value || 1),
+        sortOrder: Number(sortOrder.value || 0)
+      };
+      if (!levelId) {
+        levelData = await api('/api/admin/levels', { method: 'POST', body: JSON.stringify(payload) });
+        levelId = levelData.id;
+        history.replaceState(null, '', `/admin/levels/${levelId}`);
+      } else {
+        levelData = await api(`/api/admin/levels/${levelId}`, { method: 'PUT', body: JSON.stringify(payload) });
+      }
+      currentCharId = levelData.chars[0]?.charId || '';
+      render();
+    }
+
+    async function generateStrokes() {
+      if (!levelId) await saveLevel();
+      levelStatus.textContent = '正在生成笔画...';
+      levelData = await api(`/api/admin/levels/${levelId}/generate`, { method: 'POST', body: '{}' });
+      currentCharId = levelData.chars[0]?.charId || '';
+      hitMasks.clear();
+      levelStatus.textContent = '笔画已生成';
+      render();
+    }
+
+    async function addAnswer() {
+      if (!levelId || !levelData) return alert('请先保存并生成笔画');
+      const word = document.getElementById('answerWord').value.trim();
+      const parts = Object.entries(selected).filter(([, ids]) => ids.size).map(([charId, ids]) => ({
+        charId,
+        strokeIds: Array.from(ids).sort((a, b) => Number(a.slice(1)) - Number(b.slice(1)))
+      }));
+      if (!word) return alert('请输入答案字');
+      if (!parts.length) return alert('请先选择笔画');
+      levelData = await api(`/api/admin/levels/${levelId}/answers`, {
+        method: 'POST',
+        body: JSON.stringify({ word, parts })
+      });
+      Object.keys(selected).forEach((key) => selected[key].clear());
+      document.getElementById('answerWord').value = '';
+      render();
+    }
+
+    async function publishLevel() {
+      if (!levelId) return alert('请先保存关卡');
+      levelData = await api(`/api/admin/levels/${levelId}/publish`, { method: 'POST', body: '{}' });
+      levelStatus.textContent = '已发布';
+      render();
+    }
+
+    function render() {
+      sourceText.value = levelData?.sourceText || sourceText.value;
+      passCount.value = levelData?.passCount || passCount.value || 1;
+      sortOrder.value = levelData?.sortOrder || sortOrder.value || 0;
+      renderChars();
+      renderAnswers();
+      renderSelected();
+    }
+
+    function renderChars() {
+      charTabs.innerHTML = '';
+      stage.innerHTML = '';
+      strokeButtons.innerHTML = '';
+      if (!levelData?.chars?.length) {
+        stage.innerHTML = '<div class="hint" style="padding:16px;">还没有生成笔画</div>';
+        return;
+      }
+      if (!currentCharId) currentCharId = levelData.chars[0].charId;
+      const current = levelData.chars.find((item) => item.charId === currentCharId) || levelData.chars[0];
+      currentCharId = current.charId;
+      levelData.chars.forEach((item) => {
+        const btn = document.createElement('button');
+        btn.textContent = item.char;
+        btn.className = item.charId === currentCharId ? 'on' : '';
+        btn.onclick = () => { currentCharId = item.charId; render(); };
+        charTabs.appendChild(btn);
+      });
+
+      const full = document.createElement('img');
+      full.className = 'full';
+      full.src = current.fullImage;
+      stage.appendChild(full);
+      current.strokes.forEach((stroke) => {
+        const img = document.createElement('img');
+        img.className = `stroke ${getSelectedSet(currentCharId).has(stroke.id) ? 'on' : ''}`;
+        img.dataset.id = stroke.id;
+        img.src = stroke.image;
+        stage.appendChild(img);
+
+        const btn = document.createElement('button');
+        btn.textContent = stroke.index;
+        btn.className = getSelectedSet(currentCharId).has(stroke.id) ? 'on' : '';
+        btn.onclick = () => toggleStroke(currentCharId, stroke.id);
+        strokeButtons.appendChild(btn);
+      });
+      buildMasks(current);
+    }
+
+    function renderSelected() {
+      const parts = Object.entries(selected).filter(([, ids]) => ids.size);
+      if (!parts.length) {
+        selectedChips.innerHTML = '<span class="hint">未选择</span>';
+        return;
+      }
+      selectedChips.innerHTML = parts.map(([charId, ids]) => {
+        const char = levelData.chars.find((item) => item.charId === charId)?.char || charId;
+        const labels = Array.from(ids).sort((a, b) => Number(a.slice(1)) - Number(b.slice(1))).map((id) => `<span class="chip on">${char}:${id.slice(1)}</span>`).join('');
+        return labels;
+      }).join('');
+    }
+
+    function renderAnswers() {
+      answerList.innerHTML = (levelData?.answers || []).map((answer) => `
+        <div class="answer">
+          <div class="answer-head">
+            <span class="word">${answer.word}</span>
+            <span class="hint">${answer.parts.map((part) => `${part.charId}:${part.strokeIds.map((id) => id.slice(1)).join(',')}`).join(' + ')}</span>
+          </div>
+          <div class="chips">${answer.parts.flatMap((part) => part.strokeIds.map((id) => `<span class="chip">${part.charId}:${id.slice(1)}</span>`)).join('')}</div>
+        </div>
+      `).join('');
+    }
+
+    function getSelectedSet(charId) {
+      if (!selected[charId]) selected[charId] = new Set();
+      return selected[charId];
+    }
+
+    function toggleStroke(charId, strokeId) {
+      const ids = getSelectedSet(charId);
+      if (ids.has(strokeId)) ids.delete(strokeId);
+      else ids.add(strokeId);
+      render();
+    }
+
+    stage.addEventListener('click', (event) => {
+      const current = levelData?.chars?.find((item) => item.charId === currentCharId);
+      if (!current) return;
+      const strokeId = findStrokeAt(current, event);
+      if (!strokeId) {
+        hitStatus.textContent = '没有点到笔画';
+        return;
+      }
+      hitStatus.textContent = `已切换第 ${strokeId.slice(1)} 笔`;
+      toggleStroke(currentCharId, strokeId);
+    });
+
+    async function buildMasks(charData) {
+      await Promise.all(charData.strokes.map((stroke) => new Promise((resolve) => {
+        const key = `${charData.charId}:${stroke.id}`;
+        if (hitMasks.has(key)) return resolve();
+        const image = new Image();
+        image.crossOrigin = 'anonymous';
+        image.onload = () => {
+          try {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d', { willReadFrequently: true });
+            canvas.width = image.naturalWidth;
+            canvas.height = image.naturalHeight;
+            ctx.drawImage(image, 0, 0);
+            hitMasks.set(key, { width: canvas.width, height: canvas.height, data: ctx.getImageData(0, 0, canvas.width, canvas.height).data });
+          } catch (error) {}
+          resolve();
+        };
+        image.onerror = resolve;
+        image.src = stroke.image;
+      })));
+    }
+
+    function findStrokeAt(charData, event) {
+      const rect = stage.getBoundingClientRect();
+      const x = (event.clientX - rect.left) / rect.width;
+      const y = (event.clientY - rect.top) / rect.height;
+      for (let i = charData.strokes.length - 1; i >= 0; i -= 1) {
+        const stroke = charData.strokes[i];
+        const mask = hitMasks.get(`${charData.charId}:${stroke.id}`);
+        if (mask) {
+          const px = Math.min(mask.width - 1, Math.max(0, Math.floor(x * mask.width)));
+          const py = Math.min(mask.height - 1, Math.max(0, Math.floor(y * mask.height)));
+          if (mask.data[(py * mask.width + px) * 4 + 3] > 18) return stroke.id;
+        } else if (stroke.bounds && x >= stroke.bounds.x && x <= stroke.bounds.x + stroke.bounds.w && y >= stroke.bounds.y && y <= stroke.bounds.y + stroke.bounds.h) {
+          return stroke.id;
+        }
+      }
+      return '';
+    }
+
+    document.getElementById('saveBtn').onclick = () => saveLevel().catch((e) => alert(e.message));
+    document.getElementById('generateBtn').onclick = () => generateStrokes().catch((e) => { levelStatus.textContent = e.message; alert(e.message); });
+    document.getElementById('addAnswerBtn').onclick = () => addAnswer().catch((e) => alert(e.message));
+    document.getElementById('publishBtn').onclick = () => publishLevel().catch((e) => alert(e.message));
+    document.getElementById('clearBtn').onclick = () => { Object.keys(selected).forEach((key) => selected[key].clear()); render(); };
+
+    loadLevel().catch((e) => alert(e.message));
+  </script>
+</body>
+</html>

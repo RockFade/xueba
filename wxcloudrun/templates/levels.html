@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>关卡列表</title>
+  <style>
+    body { margin: 0; font-family: "Microsoft YaHei", sans-serif; background: #f4f0e7; color: #25211d; }
+    header { height: 56px; display: flex; align-items: center; justify-content: space-between; padding: 0 18px; border-bottom: 1px solid #d9cfbf; background: #fffdf8; }
+    main { max-width: 980px; margin: 18px auto; padding: 0 14px; }
+    a, button { color: inherit; text-decoration: none; }
+    .primary { display: inline-grid; place-items: center; height: 34px; padding: 0 14px; border-radius: 6px; background: #d96a35; color: white; font-weight: 700; }
+    table { width: 100%; border-collapse: collapse; background: #fffdf8; border: 1px solid #d9cfbf; border-radius: 8px; overflow: hidden; }
+    th, td { padding: 12px; border-bottom: 1px solid #eee4d8; text-align: left; }
+    th { color: #6b5f50; background: #fbf7ee; font-size: 13px; }
+    tr:last-child td { border-bottom: 0; }
+    .status { font-size: 12px; color: #7d7161; }
+  </style>
+</head>
+<body>
+  <header>
+    <strong>关卡列表</strong>
+    <div>
+      <a href="/admin/levels/new" class="primary">新建关卡</a>
+      <a href="/admin/logout" style="margin-left:12px;">退出</a>
+    </div>
+  </header>
+  <main>
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>原文</th>
+          <th>类型</th>
+          <th>答案</th>
+          <th>状态</th>
+          <th>操作</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for level in levels %}
+        <tr>
+          <td>{{ level.id }}</td>
+          <td>{{ level.source_text }}</td>
+          <td>{{ level.level_type }}</td>
+          <td>{{ level.answers.count }}</td>
+          <td><span class="status">{{ level.status }}</span></td>
+          <td><a href="/admin/levels/{{ level.id }}">编辑</a></td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="6">还没有关卡</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </main>
+</body>
+</html>

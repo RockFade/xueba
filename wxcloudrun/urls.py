@@ -1,26 +1,29 @@
-"""wxcloudrun URL Configuration
-
-The `urlpatterns` list routes URLs to views. For more information please see:
-    https://docs.djangoproject.com/en/3.2/topics/http/urls/
-Examples:
-Function views
-    1. Add an import:  from my_app import views
-    2. Add a URL to urlpatterns:  path('', views.home, name='home')
-Class-based views
-    1. Add an import:  from other_app.views import Home
-    2. Add a URL to urlpatterns:  path('', Home.as_view(), name='home')
-Including another URLconf
-    1. Import the include() function: from django.urls import include, path
-    2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
-"""
+from django.conf import settings
+from django.conf.urls.static import static
+from django.urls import path, re_path
 
 from wxcloudrun import views
-from django.conf.urls import url
 
-urlpatterns = (
-    # 计数器接口
-    url(r'^^api/count(/)?$', views.counter),
 
-    # 获取主页
-    url(r'(/)?$', views.index),
-)
+urlpatterns = [
+    path('', views.index),
+    path('admin/login', views.admin_login_page),
+    path('admin/logout', views.admin_logout),
+    path('admin/levels', views.admin_levels),
+    path('admin/levels/new', views.admin_level_editor),
+    path('admin/levels/<int:level_id>', views.admin_level_editor),
+    path('api/admin/levels', views.admin_levels_api),
+    path('api/admin/levels/<int:level_id>', views.admin_level_api),
+    path('api/admin/levels/<int:level_id>/generate', views.admin_generate_level),
+    path('api/admin/levels/<int:level_id>/answers', views.admin_answers_api),
+    path('api/admin/levels/<int:level_id>/answers/<int:answer_id>', views.admin_answer_api),
+    path('api/admin/levels/<int:level_id>/publish', views.admin_publish_level),
+    path('api/game/login', views.game_login),
+    path('api/game/levels', views.game_levels),
+    path('api/game/levels/<int:level_id>', views.game_level_detail),
+    path('api/game/progress', views.game_progress),
+    path('api/count', views.counter),
+    re_path(r'^api/count/?$', views.counter),
+]
+
+urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

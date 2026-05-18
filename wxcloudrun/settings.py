@@ -65,17 +65,26 @@ WSGI_APPLICATION = 'wxcloudrun.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/3.2/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.mysql',
-        'NAME': os.environ.get("MYSQL_DATABASE", 'django_demo'),
-        'USER': os.environ.get("MYSQL_USERNAME"),
-        'HOST': os.environ.get("MYSQL_ADDRESS").split(':')[0],
-        'PORT': os.environ.get("MYSQL_ADDRESS").split(':')[1],
-        'PASSWORD': os.environ.get("MYSQL_PASSWORD"),
-        'OPTIONS': {'charset': 'utf8mb4'},
+mysql_address = os.environ.get("MYSQL_ADDRESS")
+if mysql_address and os.environ.get("MYSQL_USERNAME"):
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.mysql',
+            'NAME': os.environ.get("MYSQL_DATABASE", 'django_demo'),
+            'USER': os.environ.get("MYSQL_USERNAME"),
+            'HOST': mysql_address.split(':')[0],
+            'PORT': mysql_address.split(':')[1] if ':' in mysql_address else '3306',
+            'PASSWORD': os.environ.get("MYSQL_PASSWORD"),
+            'OPTIONS': {'charset': 'utf8mb4'},
+        }
     }
-}
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
 
 # Password validation
 # https://docs.djangoproject.com/en/3.2/ref/settings/#auth-password-validators
@@ -183,6 +192,11 @@ USE_TZ = False
 # https://docs.djangoproject.com/en/3.2/howto/static-files/
 
 STATIC_URL = '/static/'
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.environ.get('MEDIA_ROOT', os.path.join(BASE_DIR, 'media'))
+ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'xueba-admin')
+WECHAT_APPID = os.environ.get('WECHAT_APPID', '')
+WECHAT_SECRET = os.environ.get('WECHAT_SECRET', '')
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/3.2/ref/settings/#default-auto-field
