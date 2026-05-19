@@ -47,6 +47,7 @@ def serialize_stroke(stroke):
 
 def serialize_answer(answer):
     return {
+        'dbId': answer.id,
         'id': answer.answer_key,
         'word': answer.word,
         'type': answer.answer_type,

@@ -5,85 +5,367 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>关卡编辑</title>
   <style>
+    :root {
+      --bg: #f6f7f9;
+      --panel: #ffffff;
+      --line: #e5e7eb;
+      --text: #111827;
+      --muted: #6b7280;
+      --soft: #f3f4f6;
+      --primary: #07c160;
+      --primary-dark: #05934a;
+      --accent: #f97316;
+      --danger: #dc2626;
+      --shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
+    }
+
     * { box-sizing: border-box; }
-    body { margin: 0; font-family: "Microsoft YaHei", sans-serif; background: #f4f0e7; color: #25211d; }
-    header { height: 56px; display: flex; align-items: center; justify-content: space-between; padding: 0 18px; border-bottom: 1px solid #d9cfbf; background: #fffdf8; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      color: var(--text);
+      background: var(--bg);
+    }
+
+    a { color: inherit; text-decoration: none; }
     button, input { font: inherit; }
-    button { height: 34px; border: 1px solid #c8bba9; border-radius: 6px; padding: 0 12px; background: #fffaf0; font-weight: 700; cursor: pointer; }
-    button.primary { border-color: #c55f34; background: #d96a35; color: #fff; }
-    input { width: 100%; height: 34px; border: 1px solid #cfc4b3; border-radius: 6px; padding: 0 9px; background: #fffef9; }
-    label { display: block; margin-bottom: 12px; font-size: 13px; color: #675d50; }
-    .page { display: grid; grid-template-columns: 240px minmax(420px, 1fr) 320px; gap: 14px; padding: 14px; }
-    .panel { border: 1px solid #d9cfbf; border-radius: 8px; background: #fffdf8; padding: 14px; }
-    h2 { margin: 0 0 12px; font-size: 15px; color: #6b5f50; }
-    .tabs, .buttons, .chips { display: flex; flex-wrap: wrap; gap: 8px; }
-    .tabs button.on, .buttons button.on, .chip.on { border-color: #d96a35; background: #ffe0c9; color: #a54d28; }
-    .stage { position: relative; width: min(62vh, 520px); max-width: 100%; aspect-ratio: 1; margin: 0 auto 12px; border: 1px solid #d6cbbb; border-radius: 8px; background: #fffaf0; overflow: hidden; }
-    .stage img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; user-select: none; pointer-events: none; }
-    .full { opacity: 0.34; filter: brightness(0.65) sepia(0.18); }
-    .stroke { opacity: 0; filter: brightness(0) saturate(100%) invert(48%) sepia(91%) saturate(897%) hue-rotate(344deg) brightness(96%) contrast(91%) drop-shadow(0 0 8px rgba(217,106,53,.75)); }
-    .stroke.on { opacity: .95; }
-    .chip { min-width: 34px; height: 30px; display: grid; place-items: center; border: 1px solid #cfc4b3; border-radius: 6px; background: #fffef9; font-weight: 800; font-size: 13px; }
-    .answer { border: 1px solid #d9cfbf; border-radius: 8px; padding: 10px; margin-top: 10px; background: #fffaf0; }
-    .answer-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
-    .word { font-size: 28px; font-weight: 800; }
-    .hint, .status { font-size: 13px; color: #7b6f60; line-height: 1.55; }
-    .status { min-height: 22px; text-align: center; color: #8c5b34; }
-    @media (max-width: 960px) { .page { grid-template-columns: 1fr; } }
+    button {
+      height: 34px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      padding: 0 12px;
+      background: var(--panel);
+      color: var(--text);
+      font-weight: 650;
+      cursor: pointer;
+    }
+    button:hover { border-color: #cbd5e1; background: #f9fafb; }
+    button.primary { border-color: var(--primary); background: var(--primary); color: #fff; }
+    button.primary:hover { border-color: var(--primary-dark); background: var(--primary-dark); }
+    button.ghost { background: transparent; }
+    button.danger { color: var(--danger); }
+    button:disabled { cursor: not-allowed; opacity: .55; }
+
+    input {
+      width: 100%;
+      height: 36px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      padding: 0 10px;
+      background: var(--panel);
+      color: var(--text);
+      outline: none;
+    }
+    input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(7, 193, 96, .12); }
+    label { display: block; margin-bottom: 14px; font-size: 12px; color: var(--muted); }
+    label span { display: block; margin-bottom: 6px; font-weight: 650; }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 5;
+      height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 18px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(255, 255, 255, .92);
+      backdrop-filter: blur(10px);
+    }
+    .title { display: flex; align-items: center; gap: 10px; min-width: 0; }
+    .title strong { font-size: 17px; white-space: nowrap; }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      height: 24px;
+      border-radius: 999px;
+      padding: 0 9px;
+      background: #eef2ff;
+      color: #4338ca;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .badge.published { background: #dcfce7; color: #15803d; }
+    .badge.draft { background: #f3f4f6; color: #4b5563; }
+    .top-actions { display: flex; align-items: center; gap: 8px; }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 280px minmax(460px, 1fr) 360px;
+      gap: 16px;
+      padding: 16px;
+      align-items: start;
+    }
+    .panel {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: var(--panel);
+      box-shadow: var(--shadow);
+    }
+    .panel-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      min-height: 48px;
+      padding: 0 14px;
+      border-bottom: 1px solid var(--line);
+    }
+    .panel-head h2 { margin: 0; font-size: 14px; }
+    .panel-body { padding: 14px; }
+
+    .meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .stat-row { display: grid; gap: 8px; margin-top: 12px; }
+    .stat {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 9px 10px;
+      border-radius: 8px;
+      background: var(--soft);
+      font-size: 13px;
+    }
+    .stat b { color: var(--text); }
+    .notice {
+      min-height: 36px;
+      margin-top: 12px;
+      padding: 9px 10px;
+      border-radius: 8px;
+      background: #fff7ed;
+      color: #9a3412;
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .workspace { min-height: calc(100vh - 92px); }
+    .char-tabs {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      padding-bottom: 2px;
+    }
+    .char-tabs button {
+      min-width: 44px;
+      height: 38px;
+      border-radius: 9px;
+      font-size: 18px;
+      background: var(--soft);
+    }
+    .char-tabs button.on { border-color: var(--primary); background: #e8fff2; color: #04753b; }
+    .char-tabs small { display: block; margin-top: -3px; font-size: 10px; color: var(--muted); }
+
+    .stage-wrap { display: grid; place-items: center; padding: 16px 0 12px; }
+    .stage {
+      position: relative;
+      width: min(62vh, 560px);
+      max-width: 100%;
+      aspect-ratio: 1;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background:
+        linear-gradient(#f1f5f9 1px, transparent 1px),
+        linear-gradient(90deg, #f1f5f9 1px, transparent 1px),
+        #fff;
+      background-size: 32px 32px;
+      overflow: hidden;
+    }
+    .stage.empty {
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      color: var(--muted);
+      text-align: center;
+      line-height: 1.6;
+    }
+    .stage img {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      user-select: none;
+      pointer-events: none;
+    }
+    .full { opacity: .30; filter: grayscale(1) contrast(.9); }
+    .stroke {
+      opacity: 0;
+      filter:
+        brightness(0) saturate(100%) invert(52%) sepia(93%) saturate(1199%)
+        hue-rotate(346deg) brightness(101%) contrast(95%)
+        drop-shadow(0 0 8px rgba(249, 115, 22, .45));
+    }
+    .stroke.on { opacity: .96; }
+    .stroke.hover { opacity: .42; }
+
+    .stroke-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding-top: 4px;
+    }
+    .stroke-buttons { display: flex; flex-wrap: wrap; gap: 7px; }
+    .stroke-buttons button {
+      width: 34px;
+      height: 32px;
+      padding: 0;
+      border-radius: 8px;
+      background: var(--soft);
+    }
+    .stroke-buttons button.on { border-color: var(--accent); background: #ffedd5; color: #c2410c; }
+    .stroke-buttons button.hover { border-color: #fdba74; }
+    .status-text { color: var(--muted); font-size: 12px; white-space: nowrap; }
+
+    .selection-card {
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      padding: 10px;
+      background: #fafafa;
+      margin-bottom: 12px;
+    }
+    .selection-title { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 13px; font-weight: 700; }
+    .chips { display: flex; flex-wrap: wrap; gap: 7px; }
+    .chip {
+      min-width: 32px;
+      height: 28px;
+      display: inline-grid;
+      place-items: center;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      padding: 0 8px;
+      background: #fff;
+      color: #374151;
+      font-size: 12px;
+      font-weight: 750;
+    }
+    .chip.on { border-color: var(--accent); background: #ffedd5; color: #c2410c; }
+    .muted { color: var(--muted); font-size: 13px; }
+
+    .answer-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+    .answer-list { display: grid; gap: 9px; margin-top: 14px; }
+    .answer-card {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 10px;
+      background: #fff;
+      cursor: pointer;
+      transition: border-color .15s, box-shadow .15s, transform .15s;
+    }
+    .answer-card:hover { border-color: #cbd5e1; box-shadow: 0 6px 18px rgba(15, 23, 42, .06); transform: translateY(-1px); }
+    .answer-card.active { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(7, 193, 96, .12); }
+    .answer-main { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+    .answer-word { font-size: 26px; font-weight: 800; line-height: 1; }
+    .answer-meta { color: var(--muted); font-size: 12px; text-align: right; }
+    .answer-card .chips { margin-top: 8px; }
+
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: 22px;
+      transform: translateX(-50%) translateY(20px);
+      opacity: 0;
+      pointer-events: none;
+      border-radius: 999px;
+      padding: 10px 16px;
+      background: rgba(17, 24, 39, .92);
+      color: #fff;
+      font-size: 13px;
+      transition: opacity .18s, transform .18s;
+      z-index: 10;
+    }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    @media (max-width: 1120px) {
+      .layout { grid-template-columns: 1fr; }
+      .workspace { min-height: auto; }
+    }
   </style>
 </head>
 <body>
-  <header>
-    <strong>{% if level %}编辑关卡 #{{ level.id }}{% else %}新建关卡{% endif %}</strong>
-    <div>
-      <a href="/admin/levels">返回列表</a>
-      <button class="primary" id="saveBtn">保存</button>
-      <button id="publishBtn">发布</button>
+  <header class="topbar">
+    <div class="title">
+      <a href="/admin/levels">← 关卡</a>
+      <strong id="pageTitle">{% if level %}编辑关卡 #{{ level.id }}{% else %}新建关卡{% endif %}</strong>
+      <span class="badge draft" id="statusBadge">草稿</span>
+    </div>
+    <div class="top-actions">
+      <button class="ghost" id="previewBtn">预览</button>
+      <button id="saveBtn">保存</button>
+      <button class="primary" id="publishBtn">发布</button>
     </div>
   </header>
 
-  <div class="page">
-    <section class="panel">
-      <h2>关卡</h2>
-      <label>原文
-        <input id="sourceText" value="{% if level %}{{ level.source_text }}{% endif %}" placeholder="明 / 明月 / 一鸣惊人">
-      </label>
-      <label>通关数量
-        <input id="passCount" type="number" min="1" value="{% if level %}{{ level.pass_count }}{% else %}1{% endif %}">
-      </label>
-      <label>排序
-        <input id="sortOrder" type="number" min="0" value="{% if level %}{{ level.sort_order }}{% else %}0{% endif %}">
-      </label>
-      <button class="primary" id="generateBtn">生成笔画</button>
-      <p class="hint" id="levelStatus">输入原文后生成笔画，再配置答案。</p>
-    </section>
-
-    <section class="panel">
-      <h2>选笔画</h2>
-      <div class="tabs" id="charTabs"></div>
-      <div class="stage" id="stage"></div>
-      <div class="buttons" id="strokeButtons"></div>
-      <div class="status" id="hitStatus"></div>
-    </section>
-
-    <section class="panel">
-      <h2>答案</h2>
-      <label>答案字
-        <input id="answerWord" placeholder="日">
-      </label>
-      <div class="chips" id="selectedChips"><span class="hint">未选择</span></div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px;">
-        <button id="clearBtn">清空</button>
-        <button class="primary" id="addAnswerBtn">添加答案</button>
+  <main class="layout">
+    <aside class="panel">
+      <div class="panel-head"><h2>关卡信息</h2></div>
+      <div class="panel-body">
+        <label><span>原文</span>
+          <input id="sourceText" value="{% if level %}{{ level.source_text }}{% endif %}" placeholder="明 / 明月 / 一鸣惊人">
+        </label>
+        <div class="meta-grid">
+          <label><span>通关数量</span>
+            <input id="passCount" type="number" min="1" value="{% if level %}{{ level.pass_count }}{% else %}1{% endif %}">
+          </label>
+          <label><span>排序</span>
+            <input id="sortOrder" type="number" min="0" value="{% if level %}{{ level.sort_order }}{% else %}0{% endif %}">
+          </label>
+        </div>
+        <button class="primary" id="generateBtn" style="width:100%;">生成/重新生成笔画</button>
+        <div class="stat-row">
+          <div class="stat"><span>类型</span><b id="typeStat">-</b></div>
+          <div class="stat"><span>字符</span><b id="charStat">0</b></div>
+          <div class="stat"><span>答案</span><b id="answerStat">0</b></div>
+        </div>
+        <div class="notice" id="levelStatus">输入原文后生成笔画，再配置答案。</div>
       </div>
-      <div id="answerList"></div>
+    </aside>
+
+    <section class="panel workspace">
+      <div class="panel-head">
+        <h2>笔画画布</h2>
+        <span class="status-text" id="hitStatus">点击字上的笔画或下方编号</span>
+      </div>
+      <div class="panel-body">
+        <div class="char-tabs" id="charTabs"></div>
+        <div class="stage-wrap"><div class="stage empty" id="stage">还没有生成笔画<br>先输入原文并点击“生成/重新生成笔画”</div></div>
+        <div class="stroke-toolbar">
+          <div class="stroke-buttons" id="strokeButtons"></div>
+          <button id="clearCurrentBtn">清空当前字</button>
+        </div>
+      </div>
     </section>
-  </div>
+
+    <aside class="panel">
+      <div class="panel-head"><h2>答案配置</h2></div>
+      <div class="panel-body">
+        <div class="selection-card">
+          <div class="selection-title">
+            <span>当前选择</span>
+            <button id="clearBtn" style="height:26px;padding:0 8px;">清空全部</button>
+          </div>
+          <div class="chips" id="selectedChips"><span class="muted">未选择</span></div>
+        </div>
+        <label><span>答案字</span>
+          <input id="answerWord" placeholder="日，回车添加">
+        </label>
+        <div class="answer-actions">
+          <button id="fillFromAnswerBtn">回显选中答案</button>
+          <button class="primary" id="addAnswerBtn">添加答案</button>
+        </div>
+        <div class="answer-list" id="answerList"></div>
+      </div>
+    </aside>
+  </main>
+
+  <div class="toast" id="toast"></div>
 
   <script>
     let levelId = {% if level %}{{ level.id }}{% else %}null{% endif %};
     let levelData = null;
     let currentCharId = '';
+    let activeAnswerId = '';
+    let hoverStrokeId = '';
     const selected = {};
     const hitMasks = new Map();
 
@@ -97,6 +379,12 @@
     const answerList = document.getElementById('answerList');
     const hitStatus = document.getElementById('hitStatus');
     const levelStatus = document.getElementById('levelStatus');
+    const statusBadge = document.getElementById('statusBadge');
+    const typeStat = document.getElementById('typeStat');
+    const charStat = document.getElementById('charStat');
+    const answerStat = document.getElementById('answerStat');
+    const answerWord = document.getElementById('answerWord');
+    const toast = document.getElementById('toast');
 
     async function api(url, options = {}) {
       const res = await fetch(url, {
@@ -121,6 +409,7 @@
         passCount: Number(passCount.value || 1),
         sortOrder: Number(sortOrder.value || 0)
       };
+      if (!payload.sourceText.trim()) throw new Error('原文不能为空');
       if (!levelId) {
         levelData = await api('/api/admin/levels', { method: 'POST', body: JSON.stringify(payload) });
         levelId = levelData.id;
@@ -128,42 +417,52 @@
       } else {
         levelData = await api(`/api/admin/levels/${levelId}`, { method: 'PUT', body: JSON.stringify(payload) });
       }
-      currentCharId = levelData.chars[0]?.charId || '';
+      currentCharId = levelData.chars[0]?.charId || currentCharId;
+      setStatus('已保存草稿');
       render();
     }
 
     async function generateStrokes() {
+      if (levelData?.answers?.length) {
+        const ok = confirm('重新生成笔画会清空当前字形素材，已配置答案可能需要重新检查。继续吗？');
+        if (!ok) return;
+      }
       if (!levelId) await saveLevel();
-      levelStatus.textContent = '正在生成笔画...';
+      setStatus('正在生成笔画...');
       levelData = await api(`/api/admin/levels/${levelId}/generate`, { method: 'POST', body: '{}' });
       currentCharId = levelData.chars[0]?.charId || '';
+      Object.keys(selected).forEach((key) => selected[key].clear());
       hitMasks.clear();
-      levelStatus.textContent = '笔画已生成';
+      setStatus(`生成成功：${levelData.chars.length} 个字，共 ${levelData.chars.reduce((sum, item) => sum + item.strokeCount, 0)} 笔`);
       render();
     }
 
     async function addAnswer() {
-      if (!levelId || !levelData) return alert('请先保存并生成笔画');
-      const word = document.getElementById('answerWord').value.trim();
-      const parts = Object.entries(selected).filter(([, ids]) => ids.size).map(([charId, ids]) => ({
-        charId,
-        strokeIds: Array.from(ids).sort((a, b) => Number(a.slice(1)) - Number(b.slice(1)))
-      }));
-      if (!word) return alert('请输入答案字');
-      if (!parts.length) return alert('请先选择笔画');
+      if (!levelId || !levelData?.chars?.length) throw new Error('请先保存并生成笔画');
+      const word = answerWord.value.trim();
+      const parts = getSelectedParts();
+      if (!word) throw new Error('请输入答案字');
+      if (!parts.length) throw new Error('请先选择笔画');
+      const duplicate = findDuplicateSelection(parts);
+      if (duplicate && !confirm(`这组笔画已经配置为「${duplicate.word}」，仍然继续添加吗？`)) return;
       levelData = await api(`/api/admin/levels/${levelId}/answers`, {
         method: 'POST',
         body: JSON.stringify({ word, parts })
       });
-      Object.keys(selected).forEach((key) => selected[key].clear());
-      document.getElementById('answerWord').value = '';
+      clearSelection();
+      answerWord.value = '';
+      activeAnswerId = '';
+      setStatus(`已添加答案：${word}`);
       render();
     }
 
     async function publishLevel() {
-      if (!levelId) return alert('请先保存关卡');
+      if (!levelId) throw new Error('请先保存关卡');
+      if (!levelData?.chars?.length) throw new Error('请先生成笔画');
+      if (!levelData?.answers?.length) throw new Error('请至少配置一个答案');
+      if (Number(passCount.value || 1) > levelData.answers.length) throw new Error('通关数量不能大于答案数量');
       levelData = await api(`/api/admin/levels/${levelId}/publish`, { method: 'POST', body: '{}' });
-      levelStatus.textContent = '已发布';
+      setStatus('已发布');
       render();
     }
 
@@ -171,6 +470,12 @@
       sourceText.value = levelData?.sourceText || sourceText.value;
       passCount.value = levelData?.passCount || passCount.value || 1;
       sortOrder.value = levelData?.sortOrder || sortOrder.value || 0;
+      typeStat.textContent = typeLabel(levelData?.type || inferType(sourceText.value));
+      charStat.textContent = levelData?.chars?.length || 0;
+      answerStat.textContent = levelData?.answers?.length || 0;
+      const status = levelData?.status || 'draft';
+      statusBadge.textContent = status === 'published' ? '已发布' : '草稿';
+      statusBadge.className = `badge ${status === 'published' ? 'published' : 'draft'}`;
       renderChars();
       renderAnswers();
       renderSelected();
@@ -180,8 +485,10 @@
       charTabs.innerHTML = '';
       stage.innerHTML = '';
       strokeButtons.innerHTML = '';
+      stage.className = 'stage';
       if (!levelData?.chars?.length) {
-        stage.innerHTML = '<div class="hint" style="padding:16px;">还没有生成笔画</div>';
+        stage.className = 'stage empty';
+        stage.innerHTML = '还没有生成笔画<br>先输入原文并点击“生成/重新生成笔画”';
         return;
       }
       if (!currentCharId) currentCharId = levelData.chars[0].charId;
@@ -189,9 +496,10 @@
       currentCharId = current.charId;
       levelData.chars.forEach((item) => {
         const btn = document.createElement('button');
-        btn.textContent = item.char;
+        const count = getSelectedSet(item.charId).size;
+        btn.innerHTML = `${item.char}<small>${count}/${item.strokeCount}</small>`;
         btn.className = item.charId === currentCharId ? 'on' : '';
-        btn.onclick = () => { currentCharId = item.charId; render(); };
+        btn.onclick = () => { currentCharId = item.charId; hoverStrokeId = ''; render(); };
         charTabs.appendChild(btn);
       });
 
@@ -200,15 +508,18 @@
       full.src = current.fullImage;
       stage.appendChild(full);
       current.strokes.forEach((stroke) => {
+        const selectedNow = getSelectedSet(currentCharId).has(stroke.id);
         const img = document.createElement('img');
-        img.className = `stroke ${getSelectedSet(currentCharId).has(stroke.id) ? 'on' : ''}`;
+        img.className = `stroke ${selectedNow ? 'on' : ''} ${hoverStrokeId === stroke.id && !selectedNow ? 'hover' : ''}`;
         img.dataset.id = stroke.id;
         img.src = stroke.image;
         stage.appendChild(img);
 
         const btn = document.createElement('button');
         btn.textContent = stroke.index;
-        btn.className = getSelectedSet(currentCharId).has(stroke.id) ? 'on' : '';
+        btn.className = `${selectedNow ? 'on' : ''} ${hoverStrokeId === stroke.id ? 'hover' : ''}`;
+        btn.onmouseenter = () => { hoverStrokeId = stroke.id; renderChars(); };
+        btn.onmouseleave = () => { hoverStrokeId = ''; renderChars(); };
         btn.onclick = () => toggleStroke(currentCharId, stroke.id);
         strokeButtons.appendChild(btn);
       });
@@ -216,28 +527,31 @@
     }
 
     function renderSelected() {
-      const parts = Object.entries(selected).filter(([, ids]) => ids.size);
+      const parts = getSelectedParts();
       if (!parts.length) {
-        selectedChips.innerHTML = '<span class="hint">未选择</span>';
+        selectedChips.innerHTML = '<span class="muted">未选择</span>';
         return;
       }
-      selectedChips.innerHTML = parts.map(([charId, ids]) => {
-        const char = levelData.chars.find((item) => item.charId === charId)?.char || charId;
-        const labels = Array.from(ids).sort((a, b) => Number(a.slice(1)) - Number(b.slice(1))).map((id) => `<span class="chip on">${char}:${id.slice(1)}</span>`).join('');
-        return labels;
+      selectedChips.innerHTML = parts.map((part) => {
+        const char = levelData.chars.find((item) => item.charId === part.charId)?.char || part.charId;
+        return part.strokeIds.map((id) => `<span class="chip on">${char}:${id.slice(1)}</span>`).join('');
       }).join('');
     }
 
     function renderAnswers() {
-      answerList.innerHTML = (levelData?.answers || []).map((answer) => `
-        <div class="answer">
-          <div class="answer-head">
-            <span class="word">${answer.word}</span>
-            <span class="hint">${answer.parts.map((part) => `${part.charId}:${part.strokeIds.map((id) => id.slice(1)).join(',')}`).join(' + ')}</span>
+      const answers = levelData?.answers || [];
+      answerList.innerHTML = answers.length ? answers.map((answer) => `
+        <div class="answer-card ${activeAnswerId === answer.id ? 'active' : ''}" data-id="${answer.id}">
+          <div class="answer-main">
+            <span class="answer-word">${answer.word}</span>
+            <span class="answer-meta">${answer.parts.map((part) => `${charName(part.charId)}:${part.strokeIds.map((id) => id.slice(1)).join(',')}`).join(' + ')}</span>
           </div>
-          <div class="chips">${answer.parts.flatMap((part) => part.strokeIds.map((id) => `<span class="chip">${part.charId}:${id.slice(1)}</span>`)).join('')}</div>
+          <div class="chips">${answer.parts.flatMap((part) => part.strokeIds.map((id) => `<span class="chip">${charName(part.charId)}:${id.slice(1)}</span>`)).join('')}</div>
         </div>
-      `).join('');
+      `).join('') : '<div class="muted">还没有答案。选笔画后输入答案字，按 Enter 添加。</div>';
+      answerList.querySelectorAll('.answer-card').forEach((card) => {
+        card.onclick = () => selectAnswer(card.dataset.id);
+      });
     }
 
     function getSelectedSet(charId) {
@@ -245,11 +559,57 @@
       return selected[charId];
     }
 
+    function getSelectedParts() {
+      return Object.entries(selected)
+        .filter(([, ids]) => ids.size)
+        .map(([charId, ids]) => ({
+          charId,
+          strokeIds: Array.from(ids).sort((a, b) => Number(a.slice(1)) - Number(b.slice(1)))
+        }));
+    }
+
     function toggleStroke(charId, strokeId) {
       const ids = getSelectedSet(charId);
       if (ids.has(strokeId)) ids.delete(strokeId);
       else ids.add(strokeId);
+      activeAnswerId = '';
       render();
+    }
+
+    function clearSelection() {
+      Object.keys(selected).forEach((key) => selected[key].clear());
+    }
+
+    function selectAnswer(answerId) {
+      const answer = (levelData?.answers || []).find((item) => item.id === answerId);
+      if (!answer) return;
+      clearSelection();
+      answer.parts.forEach((part) => {
+        selected[part.charId] = new Set(part.strokeIds);
+      });
+      activeAnswerId = answer.id;
+      answerWord.value = answer.word;
+      currentCharId = answer.parts[0]?.charId || currentCharId;
+      setStatus(`已回显答案：${answer.word}`);
+      render();
+    }
+
+    function fillFromActiveAnswer() {
+      if (!activeAnswerId) throw new Error('请先点击答案列表中的一条答案');
+      selectAnswer(activeAnswerId);
+    }
+
+    function findDuplicateSelection(parts) {
+      const key = selectionKey(parts);
+      return (levelData?.answers || []).find((answer) => selectionKey(answer.parts) === key);
+    }
+
+    function selectionKey(parts) {
+      return parts.map((part) => `${part.charId}:${part.strokeIds.slice().sort().join('|')}`).sort().join(';');
+    }
+
+    function charName(charId) {
+      return levelData?.chars?.find((item) => item.charId === charId)?.char || charId;
     }
 
     stage.addEventListener('click', (event) => {
@@ -262,6 +622,22 @@
       }
       hitStatus.textContent = `已切换第 ${strokeId.slice(1)} 笔`;
       toggleStroke(currentCharId, strokeId);
+    });
+
+    stage.addEventListener('mousemove', (event) => {
+      const current = levelData?.chars?.find((item) => item.charId === currentCharId);
+      if (!current) return;
+      const strokeId = findStrokeAt(current, event);
+      if (strokeId !== hoverStrokeId) {
+        hoverStrokeId = strokeId;
+        renderChars();
+      }
+    });
+    stage.addEventListener('mouseleave', () => {
+      if (hoverStrokeId) {
+        hoverStrokeId = '';
+        renderChars();
+      }
     });
 
     async function buildMasks(charData) {
@@ -290,6 +666,7 @@
       const rect = stage.getBoundingClientRect();
       const x = (event.clientX - rect.left) / rect.width;
       const y = (event.clientY - rect.top) / rect.height;
+      if (x < 0 || x > 1 || y < 0 || y > 1) return '';
       for (let i = charData.strokes.length - 1; i >= 0; i -= 1) {
         const stroke = charData.strokes[i];
         const mask = hitMasks.get(`${charData.charId}:${stroke.id}`);
@@ -304,11 +681,45 @@
       return '';
     }
 
+    function inferType(value) {
+      const text = (value || '').trim();
+      if (text.length <= 1) return 'single';
+      if (text.length === 4) return 'idiom';
+      return 'multi';
+    }
+
+    function typeLabel(value) {
+      return { single: '单字', multi: '多字', idiom: '成语' }[value] || '-';
+    }
+
+    function setStatus(message) {
+      levelStatus.textContent = message;
+      showToast(message);
+    }
+
+    let toastTimer = null;
+    function showToast(message) {
+      toast.textContent = message;
+      toast.classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => toast.classList.remove('show'), 1800);
+    }
+
     document.getElementById('saveBtn').onclick = () => saveLevel().catch((e) => alert(e.message));
     document.getElementById('generateBtn').onclick = () => generateStrokes().catch((e) => { levelStatus.textContent = e.message; alert(e.message); });
     document.getElementById('addAnswerBtn').onclick = () => addAnswer().catch((e) => alert(e.message));
     document.getElementById('publishBtn').onclick = () => publishLevel().catch((e) => alert(e.message));
-    document.getElementById('clearBtn').onclick = () => { Object.keys(selected).forEach((key) => selected[key].clear()); render(); };
+    document.getElementById('clearBtn').onclick = () => { clearSelection(); activeAnswerId = ''; answerWord.value = ''; render(); };
+    document.getElementById('clearCurrentBtn').onclick = () => { getSelectedSet(currentCharId).clear(); activeAnswerId = ''; render(); };
+    document.getElementById('fillFromAnswerBtn').onclick = () => fillFromActiveAnswer().catch((e) => alert(e.message));
+    document.getElementById('previewBtn').onclick = () => alert('预览模式下一版接入。当前可通过点击答案列表回显验证配置。');
+    answerWord.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') addAnswer().catch((e) => alert(e.message));
+      if (event.key === 'Escape') { clearSelection(); activeAnswerId = ''; render(); }
+    });
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') { clearSelection(); activeAnswerId = ''; answerWord.value = ''; render(); }
+    });
 
     loadLevel().catch((e) => alert(e.message));
   </script>
