@@ -3,55 +3,274 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>关卡列表</title>
+  <title>关卡管理</title>
   <style>
-    body { margin: 0; font-family: "Microsoft YaHei", sans-serif; background: #f4f0e7; color: #25211d; }
-    header { height: 56px; display: flex; align-items: center; justify-content: space-between; padding: 0 18px; border-bottom: 1px solid #d9cfbf; background: #fffdf8; }
-    main { max-width: 980px; margin: 18px auto; padding: 0 14px; }
-    a, button { color: inherit; text-decoration: none; }
-    .primary { display: inline-grid; place-items: center; height: 34px; padding: 0 14px; border-radius: 6px; background: #d96a35; color: white; font-weight: 700; }
-    table { width: 100%; border-collapse: collapse; background: #fffdf8; border: 1px solid #d9cfbf; border-radius: 8px; overflow: hidden; }
-    th, td { padding: 12px; border-bottom: 1px solid #eee4d8; text-align: left; }
-    th { color: #6b5f50; background: #fbf7ee; font-size: 13px; }
+    :root {
+      --bg: #f6f7f9;
+      --panel: #ffffff;
+      --line: #e5e7eb;
+      --text: #111827;
+      --muted: #6b7280;
+      --soft: #f3f4f6;
+      --primary: #07c160;
+      --primary-dark: #05934a;
+      --danger: #dc2626;
+      --shadow: 0 10px 30px rgba(15, 23, 42, .06);
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      color: var(--text);
+      background: var(--bg);
+    }
+    a { color: inherit; text-decoration: none; }
+
+    .shell { min-height: 100vh; display: grid; grid-template-columns: 236px 1fr; }
+    .sidebar {
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      border-right: 1px solid var(--line);
+      background: #0f172a;
+      color: #cbd5e1;
+      padding: 18px 14px;
+    }
+    .brand { display: flex; align-items: center; gap: 10px; height: 42px; margin-bottom: 18px; color: #fff; }
+    .brand-mark {
+      width: 34px;
+      height: 34px;
+      display: grid;
+      place-items: center;
+      border-radius: 10px;
+      background: var(--primary);
+      font-weight: 900;
+    }
+    .brand strong { display: block; font-size: 15px; }
+    .brand span { display: block; margin-top: 2px; color: #94a3b8; font-size: 12px; }
+    .nav { display: grid; gap: 6px; }
+    .nav a {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      height: 38px;
+      border-radius: 9px;
+      padding: 0 11px;
+      color: #cbd5e1;
+      font-size: 14px;
+      font-weight: 650;
+    }
+    .nav a.active { background: rgba(7, 193, 96, .18); color: #fff; }
+    .nav a.disabled { color: #64748b; cursor: default; }
+    .sidebar-foot {
+      position: absolute;
+      left: 14px;
+      right: 14px;
+      bottom: 16px;
+      display: grid;
+      gap: 8px;
+      font-size: 13px;
+    }
+    .sidebar-foot a { color: #94a3b8; }
+
+    .main { min-width: 0; }
+    .topbar {
+      height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 22px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(255, 255, 255, .92);
+      backdrop-filter: blur(10px);
+    }
+    .topbar h1 { margin: 0; font-size: 18px; }
+    .topbar p { margin: 3px 0 0; color: var(--muted); font-size: 13px; }
+    .primary {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      height: 36px;
+      border-radius: 8px;
+      padding: 0 14px;
+      background: var(--primary);
+      color: #fff;
+      font-weight: 750;
+    }
+    .primary:hover { background: var(--primary-dark); }
+
+    .content { padding: 18px 22px 28px; }
+    .summary {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+      margin-bottom: 16px;
+    }
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 16px;
+      background: var(--panel);
+      box-shadow: var(--shadow);
+    }
+    .card span { color: var(--muted); font-size: 13px; }
+    .card b { display: block; margin-top: 8px; font-size: 26px; }
+
+    .panel {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--panel);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+    .panel-head {
+      min-height: 54px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      border-bottom: 1px solid var(--line);
+    }
+    .panel-head strong { font-size: 15px; }
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; min-width: 760px; }
+    th, td { padding: 14px 16px; border-bottom: 1px solid #eef2f7; text-align: left; }
+    th { color: var(--muted); font-size: 12px; font-weight: 750; background: #fafafa; }
     tr:last-child td { border-bottom: 0; }
-    .status { font-size: 12px; color: #7d7161; }
+    tbody tr:hover { background: #fafafa; }
+    .source { font-size: 20px; font-weight: 800; }
+    .muted { color: var(--muted); font-size: 12px; }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      height: 24px;
+      border-radius: 999px;
+      padding: 0 9px;
+      font-size: 12px;
+      font-weight: 750;
+      background: var(--soft);
+      color: #4b5563;
+    }
+    .pill.published { background: #dcfce7; color: #15803d; }
+    .pill.draft { background: #f3f4f6; color: #4b5563; }
+    .edit-link {
+      color: #047857;
+      font-weight: 750;
+    }
+    .empty {
+      padding: 52px 20px;
+      text-align: center;
+      color: var(--muted);
+    }
+    .empty strong { display: block; margin-bottom: 8px; color: var(--text); font-size: 18px; }
+
+    @media (max-width: 900px) {
+      .shell { grid-template-columns: 1fr; }
+      .sidebar { position: static; height: auto; }
+      .sidebar-foot { position: static; margin-top: 18px; }
+      .summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
   </style>
 </head>
 <body>
-  <header>
-    <strong>关卡列表</strong>
-    <div>
-      <a href="/admin/levels/new" class="primary">新建关卡</a>
-      <a href="/admin/logout" style="margin-left:12px;">退出</a>
-    </div>
-  </header>
-  <main>
-    <table>
-      <thead>
-        <tr>
-          <th>ID</th>
-          <th>原文</th>
-          <th>类型</th>
-          <th>答案</th>
-          <th>状态</th>
-          <th>操作</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for level in levels %}
-        <tr>
-          <td>{{ level.id }}</td>
-          <td>{{ level.source_text }}</td>
-          <td>{{ level.level_type }}</td>
-          <td>{{ level.answers.count }}</td>
-          <td><span class="status">{{ level.status }}</span></td>
-          <td><a href="/admin/levels/{{ level.id }}">编辑</a></td>
-        </tr>
-        {% empty %}
-        <tr><td colspan="6">还没有关卡</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </main>
+  <div class="shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">学</div>
+        <div>
+          <strong>学霸后台</strong>
+          <span>微信小游戏运营</span>
+        </div>
+      </div>
+      <nav class="nav">
+        <a class="active" href="/admin/levels">关卡配置</a>
+        <a class="disabled" href="javascript:void(0)">用户进度</a>
+        <a class="disabled" href="javascript:void(0)">数据概览</a>
+        <a class="disabled" href="javascript:void(0)">系统设置</a>
+      </nav>
+      <div class="sidebar-foot">
+        <a href="/api/game/levels" target="_blank">查看游戏接口</a>
+        <a href="/admin/logout">退出登录</a>
+      </div>
+    </aside>
+
+    <section class="main">
+      <header class="topbar">
+        <div>
+          <h1>关卡配置</h1>
+          <p>生成笔画、配置答案并发布给微信小游戏</p>
+        </div>
+        <a href="/admin/levels/new" class="primary">新建关卡</a>
+      </header>
+
+      <main class="content">
+        <div class="summary">
+          <div class="card"><span>总关卡</span><b>{{ levels|length }}</b></div>
+          <div class="card"><span>已发布</span><b id="publishedCount">-</b></div>
+          <div class="card"><span>草稿</span><b id="draftCount">-</b></div>
+          <div class="card"><span>答案数</span><b id="answerCount">-</b></div>
+        </div>
+
+        <section class="panel">
+          <div class="panel-head">
+            <strong>关卡列表</strong>
+            <span class="muted">按排序和 ID 升序展示</span>
+          </div>
+          {% if levels %}
+          <div class="table-wrap">
+            <table id="levelsTable">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>原文</th>
+                  <th>类型</th>
+                  <th>答案</th>
+                  <th>排序</th>
+                  <th>状态</th>
+                  <th>更新时间</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for level in levels %}
+                <tr data-status="{{ level.status }}" data-answers="{{ level.answers.count }}">
+                  <td>#{{ level.id }}</td>
+                  <td>
+                    <div class="source">{{ level.source_text }}</div>
+                    <div class="muted">v{{ level.version }}</div>
+                  </td>
+                  <td><span class="pill">{{ level.level_type }}</span></td>
+                  <td>{{ level.answers.count }}</td>
+                  <td>{{ level.sort_order }}</td>
+                  <td><span class="pill {{ level.status }}">{{ level.status }}</span></td>
+                  <td><span class="muted">{{ level.updated_at|date:"Y-m-d H:i" }}</span></td>
+                  <td><a class="edit-link" href="/admin/levels/{{ level.id }}">编辑</a></td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% else %}
+          <div class="empty">
+            <strong>还没有关卡</strong>
+            <div>从“新建关卡”开始，输入原文后自动生成笔画。</div>
+          </div>
+          {% endif %}
+        </section>
+      </main>
+    </section>
+  </div>
+
+  <script>
+    const rows = Array.from(document.querySelectorAll('#levelsTable tbody tr'));
+    const published = rows.filter((row) => row.dataset.status === 'published').length;
+    const draft = rows.filter((row) => row.dataset.status === 'draft').length;
+    const answers = rows.reduce((sum, row) => sum + Number(row.dataset.answers || 0), 0);
+    document.getElementById('publishedCount').textContent = published;
+    document.getElementById('draftCount').textContent = draft;
+    document.getElementById('answerCount').textContent = answers;
+  </script>
 </body>
 </html>
