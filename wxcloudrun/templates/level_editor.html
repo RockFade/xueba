@@ -204,10 +204,32 @@
     .char-tabs button.on { border-color: var(--primary); background: #e8fff2; color: #04753b; }
     .char-tabs small { display: block; margin-top: -3px; font-size: 10px; color: var(--muted); }
 
-    .stage-wrap { display: grid; place-items: center; padding: 16px 0 12px; }
+    .stage-wrap { display: grid; padding: 16px 0 12px; }
+    .char-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 14px;
+      width: 100%;
+    }
+    .char-card {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #fff;
+      padding: 12px;
+    }
+    .char-card.active { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(7, 193, 96, .10); }
+    .char-card-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+    .char-card-head b { font-size: 22px; color: var(--text); }
     .stage {
       position: relative;
-      width: min(62vh, 560px);
+      width: min(58vh, 520px);
       max-width: 100%;
       aspect-ratio: 1;
       border: 1px solid var(--line);
@@ -219,6 +241,7 @@
       background-size: 32px 32px;
       overflow: hidden;
     }
+    .char-stage { width: 100%; }
     .stage.empty {
       display: grid;
       place-items: center;
@@ -254,6 +277,7 @@
       gap: 12px;
       padding-top: 4px;
     }
+    .char-strokes { margin-top: 10px; }
     .stroke-buttons { display: flex; flex-wrap: wrap; gap: 7px; }
     .stroke-buttons button {
       width: 34px;
@@ -330,6 +354,7 @@
       .sidebar { position: static; height: auto; }
       .sidebar-foot { position: static; margin-top: 18px; }
       .layout { grid-template-columns: 1fr; }
+      .char-grid { grid-template-columns: 1fr; }
       .workspace { min-height: auto; }
     }
   </style>
@@ -402,9 +427,9 @@
       </div>
       <div class="panel-body">
         <div class="char-tabs" id="charTabs"></div>
-        <div class="stage-wrap"><div class="stage empty" id="stage">还没有生成笔画<br>先输入原文并点击“生成/重新生成笔画”</div></div>
+        <div class="stage-wrap"><div class="char-grid" id="charGrid"><div class="stage empty">还没有生成笔画<br>先输入原文并点击“生成/重新生成笔画”</div></div></div>
         <div class="stroke-toolbar">
-          <div class="stroke-buttons" id="strokeButtons"></div>
+          <span class="status-text">多字关卡可在每个字里分别选笔画，右侧会合并成一个答案</span>
           <button id="clearCurrentBtn">清空当前字</button>
         </div>
       </div>
@@ -441,7 +466,7 @@
     let levelData = null;
     let currentCharId = '';
     let activeAnswerId = '';
-    let hoverStrokeId = '';
+    let hoverKey = '';
     const selected = {};
     const hitMasks = new Map();
 
@@ -449,8 +474,7 @@
     const passCount = document.getElementById('passCount');
     const sortOrder = document.getElementById('sortOrder');
     const charTabs = document.getElementById('charTabs');
-    const stage = document.getElementById('stage');
-    const strokeButtons = document.getElementById('strokeButtons');
+    const charGrid = document.getElementById('charGrid');
     const selectedChips = document.getElementById('selectedChips');
     const answerList = document.getElementById('answerList');
     const hitStatus = document.getElementById('hitStatus');
@@ -559,47 +583,70 @@
 
     function renderChars() {
       charTabs.innerHTML = '';
-      stage.innerHTML = '';
-      strokeButtons.innerHTML = '';
-      stage.className = 'stage';
+      charGrid.innerHTML = '';
       if (!levelData?.chars?.length) {
-        stage.className = 'stage empty';
-        stage.innerHTML = '还没有生成笔画<br>先输入原文并点击“生成/重新生成笔画”';
+        charGrid.innerHTML = '<div class="stage empty">还没有生成笔画<br>先输入原文并点击“生成/重新生成笔画”</div>';
         return;
       }
       if (!currentCharId) currentCharId = levelData.chars[0].charId;
-      const current = levelData.chars.find((item) => item.charId === currentCharId) || levelData.chars[0];
-      currentCharId = current.charId;
+      if (!levelData.chars.some((item) => item.charId === currentCharId)) {
+        currentCharId = levelData.chars[0].charId;
+      }
       levelData.chars.forEach((item) => {
         const btn = document.createElement('button');
         const count = getSelectedSet(item.charId).size;
         btn.innerHTML = `${item.char}<small>${count}/${item.strokeCount}</small>`;
         btn.className = item.charId === currentCharId ? 'on' : '';
-        btn.onclick = () => { currentCharId = item.charId; hoverStrokeId = ''; render(); };
+        btn.onclick = () => { currentCharId = item.charId; hoverKey = ''; render(); };
         charTabs.appendChild(btn);
+        charGrid.appendChild(renderCharCard(item));
+        buildMasks(item);
       });
+    }
 
+    function renderCharCard(charData) {
+      const card = document.createElement('div');
+      card.className = `char-card ${charData.charId === currentCharId ? 'active' : ''}`;
+      card.dataset.charId = charData.charId;
+      card.innerHTML = `
+        <div class="char-card-head">
+          <b>${charData.char}</b>
+          <span>${getSelectedSet(charData.charId).size}/${charData.strokeCount} 笔</span>
+        </div>
+        <div class="stage char-stage" data-char-id="${charData.charId}"></div>
+        <div class="stroke-buttons char-strokes" data-char-id="${charData.charId}"></div>
+      `;
+
+      const stageEl = card.querySelector('.char-stage');
       const full = document.createElement('img');
       full.className = 'full';
-      full.src = current.fullImage;
-      stage.appendChild(full);
-      current.strokes.forEach((stroke) => {
-        const selectedNow = getSelectedSet(currentCharId).has(stroke.id);
+      full.src = charData.fullImage;
+      stageEl.appendChild(full);
+
+      charData.strokes.forEach((stroke) => {
+        const key = `${charData.charId}:${stroke.id}`;
+        const selectedNow = getSelectedSet(charData.charId).has(stroke.id);
         const img = document.createElement('img');
-        img.className = `stroke ${selectedNow ? 'on' : ''} ${hoverStrokeId === stroke.id && !selectedNow ? 'hover' : ''}`;
+        img.className = `stroke ${selectedNow ? 'on' : ''} ${hoverKey === key && !selectedNow ? 'hover' : ''}`;
         img.dataset.id = stroke.id;
         img.src = stroke.image;
-        stage.appendChild(img);
+        stageEl.appendChild(img);
+      });
 
+      const buttons = card.querySelector('.char-strokes');
+      charData.strokes.forEach((stroke) => {
+        const key = `${charData.charId}:${stroke.id}`;
+        const selectedNow = getSelectedSet(charData.charId).has(stroke.id);
         const btn = document.createElement('button');
         btn.textContent = stroke.index;
-        btn.className = `${selectedNow ? 'on' : ''} ${hoverStrokeId === stroke.id ? 'hover' : ''}`;
-        btn.onmouseenter = () => { hoverStrokeId = stroke.id; renderChars(); };
-        btn.onmouseleave = () => { hoverStrokeId = ''; renderChars(); };
-        btn.onclick = () => toggleStroke(currentCharId, stroke.id);
-        strokeButtons.appendChild(btn);
+        btn.className = `${selectedNow ? 'on' : ''} ${hoverKey === key ? 'hover' : ''}`;
+        btn.onmouseenter = () => { hoverKey = key; renderChars(); };
+        btn.onmouseleave = () => { hoverKey = ''; renderChars(); };
+        btn.onclick = () => toggleStroke(charData.charId, stroke.id);
+        buttons.appendChild(btn);
       });
-      buildMasks(current);
+
+      return card;
     }
 
     function renderSelected() {
@@ -688,30 +735,38 @@
       return levelData?.chars?.find((item) => item.charId === charId)?.char || charId;
     }
 
-    stage.addEventListener('click', (event) => {
-      const current = levelData?.chars?.find((item) => item.charId === currentCharId);
+    charGrid.addEventListener('click', (event) => {
+      const stageEl = event.target.closest('.char-stage');
+      if (!stageEl) return;
+      const charId = stageEl.dataset.charId;
+      const current = levelData?.chars?.find((item) => item.charId === charId);
       if (!current) return;
-      const strokeId = findStrokeAt(current, event);
+      const strokeId = findStrokeAt(current, event, stageEl);
       if (!strokeId) {
         hitStatus.textContent = '没有点到笔画';
         return;
       }
+      currentCharId = charId;
       hitStatus.textContent = `已切换第 ${strokeId.slice(1)} 笔`;
-      toggleStroke(currentCharId, strokeId);
+      toggleStroke(charId, strokeId);
     });
 
-    stage.addEventListener('mousemove', (event) => {
-      const current = levelData?.chars?.find((item) => item.charId === currentCharId);
+    charGrid.addEventListener('mousemove', (event) => {
+      const stageEl = event.target.closest('.char-stage');
+      if (!stageEl) return;
+      const charId = stageEl.dataset.charId;
+      const current = levelData?.chars?.find((item) => item.charId === charId);
       if (!current) return;
-      const strokeId = findStrokeAt(current, event);
-      if (strokeId !== hoverStrokeId) {
-        hoverStrokeId = strokeId;
+      const strokeId = findStrokeAt(current, event, stageEl);
+      const nextKey = strokeId ? `${charId}:${strokeId}` : '';
+      if (nextKey !== hoverKey) {
+        hoverKey = nextKey;
         renderChars();
       }
     });
-    stage.addEventListener('mouseleave', () => {
-      if (hoverStrokeId) {
-        hoverStrokeId = '';
+    charGrid.addEventListener('mouseleave', () => {
+      if (hoverKey) {
+        hoverKey = '';
         renderChars();
       }
     });
@@ -738,8 +793,8 @@
       })));
     }
 
-    function findStrokeAt(charData, event) {
-      const rect = stage.getBoundingClientRect();
+    function findStrokeAt(charData, event, stageEl) {
+      const rect = stageEl.getBoundingClientRect();
       const x = (event.clientX - rect.left) / rect.width;
       const y = (event.clientY - rect.top) / rect.height;
       if (x < 0 || x > 1 || y < 0 || y > 1) return '';
